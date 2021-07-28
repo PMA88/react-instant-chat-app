@@ -10,7 +10,12 @@ const router = require("./router");
 
 const app = express();
 const server = http.createServer(app);
-const io = socketio(server);
+const io = socketio(server, {
+  cors: {
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"],
+  },
+});
 
 io.on("connection", (socket) => {
   socket.on("join", ({ name, room }, callback) => {
@@ -18,7 +23,24 @@ io.on("connection", (socket) => {
 
     if (error) return callback(error);
 
+    socket.emit("message", {
+      user: "admin",
+      text: `${user.name} has joined ${user.room}!`,
+    });
+
+    socket.broadcast
+      .to(user.room)
+      .emit("message", { user: "admin", text: `${user.name} has joined!` });
+
     socket.join(user.room);
+  });
+
+  socket.on("sendMessage", (message, callback) => {
+    const user = getUser(socket.id);
+
+    io.to(user.room).emit("message", { user: user.name, text: message });
+
+    callback();
   });
 
   socket.on("disconnect", () => {
